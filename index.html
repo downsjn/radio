@@ -1,13 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Happy 4th 0'July</title>
+    <title>SFFF Radio Live</title>
     <style>
         body { 
-            background-color: #620000; /* Deep Red */
-            color: #cccccc;           /* Grey Text */
+            background-color: #620000 !important; /* Deep Red */
+            color: #cccccc !important;           /* Grey Text */
             font-family: 'Helvetica', 'Arial', sans-serif;
             display: flex;
             justify-content: center;
@@ -18,33 +17,94 @@
         .player-card {
             background-color: #440000; /* Darker Red background */
             border: 5px solid #CC6600; /* Orange Border */
-            padding: 40px;             
+            padding: 60px;             /* Bigger Padding */
             text-align: center;
-            border-radius: 25px;       
+            border-radius: 25px;       /* Rounder corners */
             box-shadow: 0 15px 50px rgba(0,0,0,0.7);
-            width: 350px;              
+            width: 500px;              /* Bigger Width */
         }
         h1 { 
             color: #CC6600; 
             text-transform: uppercase; 
             margin: 0 0 10px 0; 
-            font-size: 2em; 
+            font-size: 2.5em; 
             letter-spacing: 3px;
         }
         .subtitle {
             color: #ffffff;
-            font-size: 0.9em;
-            margin-bottom: 30px;
+            font-size: 1em;
+            margin-bottom: 40px;
             letter-spacing: 1px;
             opacity: 0.8;
         }
-        /* Custom Orange Audio Player look via filters */
+        ul {
+  height: fit-content; /* Adjust height based on content */
+  overflow: auto; /* Adds scrollbar if content is too long */
+}
+
+/* Updated Scroller to match your Deep Red/Orange theme */
+.scroll-container {
+    width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    background-color: #220000; /* Darker red than card for contrast */
+    border: 2px solid #CC6600; /* Matching your orange border */
+    border-radius: 10px;
+    padding: 12px 0;
+    margin-bottom: 25px;
+    box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+}
+
+.scroll-text {
+    display: inline-block;
+    padding-left: 100%;
+    animation: marquee 20s linear infinite; /* 20s is smoother for long ID3 tags */
+    color: #ffffff; /* White text for readability */
+    font-size: 1.2em;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+@keyframes marquee {
+    0% { transform: translate(0, 0); }
+    100% { transform: translate(-100%, 0); }
+}
+
+/* Pause scroll on hover so people can read the Album/Year */
+.scroll-container:hover .scroll-text {
+    animation-play-state: paused;
+}
+
+/* History List Styling */
+#history-list {
+    list-style: none;
+    padding: 0;
+    margin-top: 30px;
+    text-align: left;
+    font-size: 0.9em;
+    max-height: 150px;
+    overflow-y: auto;
+    border-top: 1px solid #CC6600;
+}
+
+#history-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(204, 102, 0, 0.2);
+    color: #cccccc;
+}
+
+#history-list li b {
+    color: #CC6600; /* Orange timestamps */
+}
+
+        /* Custom Orange Audio Player */
         audio { 
             width: 100%;
-            height: 45px;
-            margin-top: 10px;
+            height: 50px;
             filter: sepia(100%) saturate(300%) hue-rotate(320deg) brightness(100%); 
         }
+        
         /* Pulse effect for live status */
         .live-indicator {
             display: inline-block;
@@ -52,31 +112,155 @@
             height: 10px;
             background-color: #ff0000;
             border-radius: 50%;
-            margin-right: 8px;
+            margin-right: 10px;
             box-shadow: 0 0 10px #ff0000;
             animation: pulse 1.5s infinite;
         }
+
         @keyframes pulse {
             0% { opacity: 1; }
             50% { opacity: 0.3; }
             100% { opacity: 1; }
         }
+        .art-container {
+    width: fit-content;
+    height: fit-content;
+    margin: 0 auto 20px auto;
+    border: 3px solid #CC6600;
+    border-radius: 15px;
+    overflow: hidden;
+    background-color: #220000;
+}
+#album-art {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
     </style>
 </head>
 <body>
-
 <div class="player-card">
-    <h1>Your American Radio</h1>
+    <h1>Happy 4th o'July</h1>
     <div class="subtitle">
-        <span class="live-indicator"></span>EN DIRECT // LIVE STREAM
+        <span class="live-indicator"></span>EN DIRECT...LIVE STREAM&nbsp;&nbsp;<span class="live-indicator"></span>
     </div>
-
-    <!-- Pointing directly to your proxy domain name to satisfy HTTPS requirements -->
+<div class="art-container">
+    <img id="album-art" src="cover.jpg" alt="Album Art">
+</div>
+Now Playing / Up Next
+    <div class="scroll-container">
+        <div id="now-playing" class="scroll-text">
+            FETCHING LATEST TRACK INFO...
+        </div>
+    </div>
+<div id="next-playing" style="color: #CC6600; font-size: 0.8em; margin-bottom: 10px; font-weight: bold;"></div>
     <audio controls>
         <source src="https://radio.sacramentofrenchfilmfestival.org/live" type="audio/mpeg">
         Your browser does not support the audio element.
     </audio>
+   
+    <ul height="500px" id="history-list">  
+        </ul>
 </div>
+
+<script>
+let currentSong = "";
+let lastNextTrack = "";
+let labelState = "up next";
+let labelTimer = null;
+
+function updatePage() {
+    const timestamp = Date.now();
+    const artImg = document.getElementById('album-art');
+    const nowPlayingDiv = document.getElementById('now-playing');
+
+    // 1. Update Metadata Text
+    fetch('nowplaying.txt?t=' + timestamp)
+        .then(r => r.text())
+        .then(data => {
+            let cleanData = data.trim();
+            cleanData = cleanData.replace(/\$year|\$album/g, '').replace(/--\s*-+/g, '').replace(/\s+/g, ' ').trim();
+            if (cleanData !== currentSong) {
+                currentSong = cleanData;
+                nowPlayingDiv.innerText = currentSong;
+                
+                // Trigger Art Update only when song changes
+                updateArt(timestamp);
+                
+                // Reset Marquee Animation
+                nowPlayingDiv.style.animation = 'none';
+                nowPlayingDiv.offsetHeight; 
+                nowPlayingDiv.style.animation = null;
+            }
+        });
+
+    // 1.5 Update Next Playing with timed label
+    fetch('nextplaying.txt?t=' + timestamp)
+        .then(r => r.ok ? r.text() : Promise.reject())
+        .then(data => {
+            const nextTrack = data.trim();
+            if (nextTrack !== lastNextTrack) {
+                lastNextTrack = nextTrack;
+                labelState = "up next";
+                if (labelTimer) clearTimeout(labelTimer);
+                labelTimer = setTimeout(() => {
+                    labelState = "now playing";
+                    updateNextPlayingDisplay();
+                }, 80000); // 80 seconds
+            }
+            updateNextPlayingDisplay();
+        })
+        .catch(() => { 
+            document.getElementById('next-playing').style.display = "none"; 
+        });
+
+    // 2. Update History List
+    fetch('playlist.log?t=' + timestamp)
+        .then(response => response.text())
+        .then(data => {
+            const lines = data.trim().split('\n').reverse();
+            let html = "";
+            // Show only the last 5 tracks from the last hour
+            lines.slice(0, 5).forEach(line => {
+                const parts = line.split(' | ');
+                if (parts.length < 2) return;
+                const timeOnly = parts[0].split(' ')[1].substring(0, 5);
+                html += `<li><b>${timeOnly}</b> ${parts[1]}</li>`;
+            });
+            document.getElementById('history-list').innerHTML = html;
+        });
+}
+
+function updateNextPlayingDisplay() {
+    const nextPlayingDiv = document.getElementById('next-playing');
+    if (lastNextTrack) {
+        const label = labelState === "up next" ? "COMING UP: " : "NOW PLAYING: ";
+        nextPlayingDiv.innerText = label + lastNextTrack;
+        nextPlayingDiv.style.display = "block";
+    } else {
+        nextPlayingDiv.style.display = "none";
+    }
+}
+
+function updateArt(ts) {
+    const artImg = document.getElementById('album-art');
+    
+    // Try to load cover.jpg with aggressive cache busting
+    const newImg = new Image();
+    newImg.onload = function() {
+        artImg.src = 'cover.jpg?t=' + ts;
+    };
+    newImg.onerror = function() {
+        console.log("Cover not found, using default.");
+        artImg.src = 'default_cover.jpg?t=' + ts;
+    };
+    newImg.src = 'cover.jpg?t=' + ts;
+}
+
+// Check for updates every 10 seconds
+setInterval(updatePage, 10000);
+updatePage();
+</script>
 
 </body>
 </html>
