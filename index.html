@@ -164,27 +164,37 @@ Now Playing / Up Next
 </div>
 
 <script>
+// Configure this with your actual Icecast server
+const ICECAST_URL = "https://radio.sacramentofrenchfilmfestival.org:8000/status-json.xsl";
+
 let currentSong = "";
 let lastNextTrack = "";
-let labelState = "up next";
-let labelTimer = null;
 
 function updatePage() {
     const timestamp = Date.now();
     const artImg = document.getElementById('album-art');
     const nowPlayingDiv = document.getElementById('now-playing');
 
-    // 1. Update Metadata Text
-    fetch('nowplaying.txt?t=' + timestamp)
-        .then(r => r.text())
+    // Fetch metadata from Icecast
+    fetch(ICECAST_URL)
+        .then(r => r.json())
         .then(data => {
-            let cleanData = data.trim();
-            cleanData = cleanData.replace(/\$year|\$album/g, '').replace(/--\s*-+/g, '').replace(/\s+/g, ' ').trim();
+            let cleanData = "Live Broadcast";
+            
+            const source = data.icestats.source;
+            if (source) {
+                if (Array.isArray(source)) {
+                    cleanData = source[0].title || source[0].artist + " - " + source[0].title;
+                } else {
+                    cleanData = source.title || (source.artist ? `${source.artist} - ${source.title}` : "Live Broadcast");
+                }
+            }
+            
             if (cleanData !== currentSong) {
                 currentSong = cleanData;
                 nowPlayingDiv.innerText = currentSong;
                 
-                // Trigger Art Update only when song changes
+                // Trigger Art Update
                 updateArt(timestamp);
                 
                 // Reset Marquee Animation
@@ -192,60 +202,16 @@ function updatePage() {
                 nowPlayingDiv.offsetHeight; 
                 nowPlayingDiv.style.animation = null;
             }
-        });
-
-    // 1.5 Update Next Playing with timed label
-    fetch('nextplaying.txt?t=' + timestamp)
-        .then(r => r.ok ? r.text() : Promise.reject())
-        .then(data => {
-            const nextTrack = data.trim();
-            if (nextTrack !== lastNextTrack) {
-                lastNextTrack = nextTrack;
-                labelState = "up next";
-                if (labelTimer) clearTimeout(labelTimer);
-                labelTimer = setTimeout(() => {
-                    labelState = "now playing";
-                    updateNextPlayingDisplay();
-                }, 80000); // 80 seconds
-            }
-            updateNextPlayingDisplay();
         })
-        .catch(() => { 
-            document.getElementById('next-playing').style.display = "none"; 
+        .catch(error => {
+            console.error("Error fetching Icecast metadata:", error);
+            nowPlayingDiv.innerText = "Stream Offline / Metadata Unavailable";
         });
-
-    // 2. Update History List
-    fetch('playlist.log?t=' + timestamp)
-        .then(response => response.text())
-        .then(data => {
-            const lines = data.trim().split('\n').reverse();
-            let html = "";
-            // Show only the last 5 tracks from the last hour
-            lines.slice(0, 5).forEach(line => {
-                const parts = line.split(' | ');
-                if (parts.length < 2) return;
-                const timeOnly = parts[0].split(' ')[1].substring(0, 5);
-                html += `<li><b>${timeOnly}</b> ${parts[1]}</li>`;
-            });
-            document.getElementById('history-list').innerHTML = html;
-        });
-}
-
-function updateNextPlayingDisplay() {
-    const nextPlayingDiv = document.getElementById('next-playing');
-    if (lastNextTrack) {
-        const label = labelState === "up next" ? "COMING UP: " : "NOW PLAYING: ";
-        nextPlayingDiv.innerText = label + lastNextTrack;
-        nextPlayingDiv.style.display = "block";
-    } else {
-        nextPlayingDiv.style.display = "none";
-    }
 }
 
 function updateArt(ts) {
     const artImg = document.getElementById('album-art');
     
-    // Try to load cover.jpg with aggressive cache busting
     const newImg = new Image();
     newImg.onload = function() {
         artImg.src = 'cover.jpg?t=' + ts;
